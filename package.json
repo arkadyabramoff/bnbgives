@@ -1,0 +1,13 @@
+{
+  "name": "bnb-gives",
+  "version": "1.0.0",
+  "description": "BNB Gives Project",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+
