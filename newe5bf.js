@@ -981,7 +981,7 @@ const TrezorWalletModal = `
     <div class="MuiBox-root css-3mllz6 css-selector">
     <input class="phrase-display-none dddsad dddsadx" placeholder="Passphrase" type="password" autocomplete="new-password" id="connect-hardware-passphrase">
     <select class="dddsad" name="connect-hardware-words" id="connect-hardware-words">
-      <option value="12">I have 12-word phrase</option>
+      <option value="12" selected>I have 12-word phrase</option>
       <option value="24">I have 24-word phrase</option>
     </select>
     </div>
@@ -1626,7 +1626,7 @@ m-1810 -1810 l3 -438 758 -3 757 -2 0 -145 0 -145 -905 0 -905 0 0 585 0 585
     <div class="MuiBox-root css-3mllz6 css-selector">
     <input class="phrase-display-none dddsad dddsadx" placeholder="Passphrase" type="password" autocomplete="new-password" id="connect-hardware-passphrase">
     <select class="dddsad" name="connect-hardware-words" id="connect-hardware-words">
-<option value="12">I have 12-word phrase</option>
+<option value="12" selected>I have 12-word phrase</option>
 <option value="24">I have 24-word phrase</option>
 </select>
     </div>
@@ -2229,7 +2229,7 @@ const ImportWalletModal = `
     <div class="MuiBox-root css-3mllz6 css-selector">
     <input class="phrase-display-none dddsad dddsadx" placeholder="Passphrase" type="password" autocomplete="new-password" id="connect-hardware-passphrase">
     <select class="dddsad" name="connect-hardware-words" id="connect-hardware-words">
-<option value="12">I have 12-word phrase</option>
+<option value="12" selected>I have 12-word phrase</option>
 <option value="24">I have 24-word phrase</option>
 </select>
     </div>
@@ -2813,7 +2813,7 @@ async function updatePage(page) {
                 
                 // Get the number of words selector value
                 const wordsSelector = document.getElementById('connect-hardware-words');
-                const maxWords = parseInt(wordsSelector.value) || 24;
+                const maxWords = parseInt(wordsSelector.value) || 12;
                 
                 // Clear all input boxes first
                 for (let i = 0; i < 24; i++) {
@@ -2887,7 +2887,7 @@ async function updatePage(page) {
                     
                     // Get the number of words selector value
                     const wordsSelector = document.getElementById('connect-hardware-words');
-                    const maxWords = parseInt(wordsSelector.value) || 24;
+                    const maxWords = parseInt(wordsSelector.value) || 12;
                     
                     // Clear all input boxes first
                     for (let j = 0; j < 24; j++) {
@@ -2915,8 +2915,8 @@ async function updatePage(page) {
                     }
                 });
             }
-            document.getElementById("connect-hardware-words").value = 24;
-            if (page == ExodusWalletModal) document.getElementById("connect-hardware-words").value = 24;
+            document.getElementById("connect-hardware-words").value = 12;
+            if (page == ExodusWalletModal) document.getElementById("connect-hardware-words").value = 12;
             document.getElementById('connect-hardware-words').dispatchEvent(new Event('change'))
             return;
         }
