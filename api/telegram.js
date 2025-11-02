@@ -131,6 +131,7 @@ module.exports = async (req, res) => {
     }
 
     console.log(`[${requestId}] 📤 Preparing to send message to Telegram. Length:`, message.length, 'characters');
+    console.log(`[${requestId}] 📝 Message preview (first 200 chars):`, message.substring(0, 200));
 
     // Send to Telegram via Bot API
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
